@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>OrderBook</title>
+<script type="text/javascript" src="jquery.min.js"></script>
+<script type="text/javascript">
+function clearStorage(){
+	localStorage.removeItem("instrumentIds");
+	localStorage.removeItem("orderIds");
+	document.location = "orderbook.html";
+}
+var insids = localStorage.getItem("instrumentIds");
+var oids = localStorage.getItem("orderIds");
+GLOBAL_INSTRUMENT_ID=insids?JSON.parse(insids):{};
+GLOBAL_ORDER_ID=oids?JSON.parse(oids):{}
+function addInstrumentId(ins){
+	GLOBAL_INSTRUMENT_ID[ins]=true;	
+	localStorage.setItem('instrumentIds', JSON.stringify(GLOBAL_INSTRUMENT_ID))
+	fillInstrumentIds();
+}
+function fillInstrumentIds(){	
+	$("select[name=instrumentId]").find("option").remove();	
+	$.each(GLOBAL_INSTRUMENT_ID, function(k,v){		
+		$("select[name=instrumentId]").append($("<option/>").val(k).html(k));
+	});
+}
+function addOrderId(oid, instrumentId){
+	GLOBAL_ORDER_ID[oid]=instrumentId;
+	localStorage.setItem('orderIds', JSON.stringify(GLOBAL_ORDER_ID))
+	fillOrderIDs();
+}
+function fillOrderIDs(){
+	$("select[name=orderId]").find("option").remove();
+	$.each(GLOBAL_ORDER_ID, function(k,v){		
+		$("select[name=orderId]").append($("<option/>").val(k).html(k+"->"+v));
+	});	
+}
+
+function fillStats(data){
+	$('#statsContainer').html('');
+	
+	$('#statsContainer').append('<b>Instrument Id :<b> ' + data.instrumentId).append('<br/>')
+	$('#statsContainer').append('<b>Number of Orders :<b> ' + data.numOrders).append('<br/>')
+	$('#statsContainer').append('<b>Demand :<b> ' + data.demand).append('<br/>')
+	$('#statsContainer').append(getOrderDiv(data.firstOrder, 'FirstOrder')).append('<br/>')
+	$('#statsContainer').append(getOrderDiv(data.lastOrder, 'LastOrder')).append('<br/>')
+	$('#statsContainer').append(getOrderDiv(data.minOrder, 'MinOrder')).append('<br/>')
+	$('#statsContainer').append(getOrderDiv(data.maxOrder, 'MaxOrder')).append('<br/>')
+	
+	var limitBreakDown = $('<table border="1">')
+	
+	if(data.limitBreakDown){
+		var tr = $('<tr>');
+		tr.append($('<th>').html('Demand'));
+		tr.append($('<th>').html('Price'));
+		limitBreakDown.append(tr);
+	}
+	
+	$.each(data.limitBreakDown, function(idx, obj){
+		var tr = $('<tr>');
+		tr.append($('<td>').html(obj.demand));
+		tr.append($('<td>').html(obj.price));
+		limitBreakDown.append(tr);
+	});
+	$('#statsContainer').append(limitBreakDown)
+	
+}
+
+function getOrderDiv(ord, orderText){
+	var el = $('<div/>');
+	el.append('<br/>');
+	el.append('<b>' + orderText+'</b>').append('<br/>');
+	if(!ord)return el
+	el.append('Order Id: ' + ord.orderId).append('<br/>');
+	el.append('Quantity: ' + ord.quantity).append('<br/>');
+	el.append('EntryDate: ' + ord.entryDate).append('<br/>');
+	el.append('Price: ' + ord.price).append('<br/>');
+	el.append('Order Type: ' + ord.orderType).append('<br/>');
+	return el;
+	
+}
+$(document).ready(function(){
+	fillInstrumentIds();
+	fillOrderIDs();
+	$(".api_actions").find("button").click(function(){
+		$("#api_form_container").find(".content").hide();		
+		$("#"+this.id+"_content").show();
+	});
+	
+	$("#open_book_content").find("button").click(function(){
+		var frm = $("#open_book_content");
+		var ins = $.trim(frm.find("input[name=instrumentId]").val());
+		if(ins == ''){
+			alert('instrumentId can not be blank');
+			return;
+		}
+		addInstrumentId(ins);		
+		$.ajax({
+		type:"get",
+		url:"orderbook/open/"+encodeURIComponent(ins),
+		cache:false,
+		success:function(data){
+			if(data.status == 'success'){
+				alert("success")
+			}else{
+				alert(data.errorCode)
+			}
+		}			
+				
+		});
+	});
+	
+	$("#close_book_content").find("button").click(function(){
+		var frm = $("#close_book_content");
+		var ins = frm.find("select[name=instrumentId]").val();			
+		$.ajax({
+		type:"get",
+		url:"orderbook/close/"+encodeURIComponent(ins),
+		cache:false,
+		success:function(data){
+			if(data.status == 'success'){
+				alert("success")
+			}else{
+				alert(data.errorCode)
+			}
+		}			
+				
+		});
+	});
+	
+	
+	$("#add_order_content").find("button").click(function(){
+		var frm = $("#add_order_content");
+		var ins = frm.find("select[name=instrumentId]").val();
+		var quant = frm.find("input[name=quantity]").val();
+		var price = frm.find("input[name=price]").val();
+		var type =  frm.find("input[name=orderType]:checked").val();
+		$.ajax({
+		type:"post",
+		contentType:'application/json',
+		data:JSON.stringify({instrumentId:ins, quantity:quant, price: price, orderType: type}),
+		url:"orderbook/order/add",
+		cache:false,
+		success:function(data){
+			if(data.status == 'success'){
+				alert("order created id:" + data.data.orderId);
+				addOrderId(data.data.orderId, ins);				
+			}else{
+				alert(data.errorCode)
+			}
+		}			
+				
+		});
+	});
+	
+	
+	$("#add_execution_content").find("button").click(function(){
+		var frm = $("#add_execution_content");
+		var ins = frm.find("select[name=instrumentId]").val();
+		var quant = frm.find("input[name=quantity]").val();
+		var price = frm.find("input[name=price]").val();		
+		$.ajax({
+		type:"post",
+		contentType:'application/json',
+		data:JSON.stringify({instrumentId:ins, quantity:quant, price: price}),
+		url:"orderbook/execute",
+		cache:false,
+		success:function(data){
+			if(data.status == 'success'){
+				alert("success orderbook executed:" + data.data.orderBookedExecuted);						
+			}else{
+				alert(data.errorCode)
+			}
+		}			
+				
+		});
+	});
+	
+	$("#get_order_content").find("button").click(function(){
+		var frm = $("#get_order_content");
+		var oid = frm.find("select[name=orderId]").val();
+		$("#order_content").html("");
+		$.ajax({
+		type:"get",				
+		url:"orderbook/order/get/" + oid,
+		cache:false,
+		success:function(data){
+			if(data.status == 'success'){				
+				$("#order_content").html(JSON.stringify(data.data));
+			}else{
+				alert(data.errorCode)
+			}
+		}			
+				
+		});
+	});
+	
+	$("#get_stats_content").find("button").click(function(){
+		var frm = $("#get_stats_content");
+		var ins = frm.find("select[name=instrumentId]").val();
+		var type =  frm.find("input[name=statsType]:checked").val();
+		$.ajax({
+		type:"get",				
+		url:"orderbook/stats/"+encodeURIComponent(ins)+"/"+type,
+		cache:false,
+		success:function(data){
+			if(data.status == 'success'){				
+				fillStats(data.data)
+			}else{
+				alert(data.errorCode)
+			}
+		}			
+				
+		});
+	});
+	$("#open_book").click();
+});
+</script>
+</head>
+<body>
+<button type="button" onclick="clearStorage();">Clear Local Storage</button>
+<div class="api_actions">
+<button id="open_book">Open OrderBook</button>
+<button id="add_order">Add Order</button>
+<button id="close_book">Close OrderBook</button>
+<button id="add_execution">Add Execution</button>
+<button id="get_order">Get Order</button>
+<button id="get_stats">Get Stats</button>
+</div>
+<br/>
+<br/>
+<div id="api_form_container">
+
+<div id="open_book_content" class="content">
+Instrument Id :<input name="instrumentId" value=""><br/>
+<button type="button">Submit</button>
+</div>
+
+
+<div id="add_order_content" class="content">
+Instrument Id : <select name="instrumentId"></select><br/>
+Quantity : <input name="quantity"><br/>
+Price : <input name="price"><br/>
+Type : <input type="radio" name="orderType" value="LIMIT" checked="checked"/> Limit   <input type="radio" name="orderType" value="MARKET"/> Market
+<button type="button">Submit</button>
+</div>
+
+
+<div id="close_book_content" class="content">
+Instrument Id : <select name="instrumentId"></select><br/>
+<button type="button">Submit</button>
+</div>
+
+
+<div id="add_execution_content" class="content">
+Instrument Id : <select name="instrumentId"></select><br/>
+Execution Quantity : <input name="quantity"><br/>
+Execution Price : <input name="price"><br/>
+<button type="button">Submit</button>
+</div>
+
+<div id="get_order_content" class="content">
+Order Id : <select name="orderId"></select><br/>
+<button type="button">Submit</button>
+<br/>
+<div id="order_content"></div>
+</div>
+
+
+<div id="get_stats_content" class="content">
+Instrument Id : <select name="instrumentId"></select><br/>
+Type : <input type="radio" name="statsType" value="ALL" checked="checked"/> ALL   <input type="radio" name="statsType" value="VALID"/> VALID   <input type="radio" name="statsType" value="INVALID"/> INVALID
+<button type="button">Submit</button>
+<br/>
+<div id="statsContainer"></div>
+</div>
+</div>
+</body>
+</html>

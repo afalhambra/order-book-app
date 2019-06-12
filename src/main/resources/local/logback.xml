@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration debug="false" scan="false"
+	scanPeriod="10 seconds">
+		
+	<statusListener
+		class="ch.qos.logback.core.status.NopStatusListener" />
+
+	<shutdownHook
+		class="ch.qos.logback.core.hook.DelayingShutdownHook" />
+		
+	<property name="DEV_HOME" value="d:/logs" />		
+
+	<appender name="STDOUT"
+		class="ch.qos.logback.core.ConsoleAppender">
+		<encoder
+			class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+			<Pattern>%date [%X{mdcData}]%-5level %logger{36} - %msg%xEx%n
+			</Pattern>
+		</encoder>
+	</appender>
+
+	<appender name="FILE-AUDIT"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${DEV_HOME}/order-book-app.log</file>
+		<encoder
+			class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+			<pattern>%d{dd-MM-yyyy HH:mm:ss} [%thread] %-5level	%logger{36}.%M-%msg%n</pattern>
+		</encoder>
+
+		<rollingPolicy
+			class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<!-- rollover daily -->
+			<fileNamePattern>${DEV_HOME}/archived/order-book-app.%d{yyyy-MM-dd}.%i.log
+			</fileNamePattern>
+			<timeBasedFileNamingAndTriggeringPolicy
+				class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>100MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+		</rollingPolicy>
+
+	</appender>
+
+	<appender name="ASYNC"
+		class="ch.qos.logback.classic.AsyncAppender">
+		<queueSize>2048</queueSize>
+		<discardingThreshold>0</discardingThreshold>
+		<neverBlock>true</neverBlock>
+		<includeCallerData>true</includeCallerData>
+		<appender-ref ref="STDOUT" />
+	</appender>
+
+	<logger name="com.creditsuisse.orderbook" level="INFO" additivity="false">
+		<appender-ref ref="FILE-AUDIT" />
+		<appender-ref ref="ASYNC" />
+	</logger>
+
+	<logger name="org.springframework.cache" level="INFO">
+		<appender-ref ref="FILE-AUDIT" />
+		<appender-ref ref="ASYNC" />
+	</logger>
+
+	<logger name="org.hibernate.type" level="INFO"
+		additivity="false">
+		<appender-ref ref="FILE-AUDIT" />	
+		<appender-ref ref="ASYNC" />
+	</logger>
+
+	<logger name="org.hibernate.SQL" level="INFO" additivity="false">
+		<appender-ref ref="FILE-AUDIT" />
+		<appender-ref ref="ASYNC" />
+	</logger>
+
+	<logger name="org.hibernate.stat" level="INFO"
+		additivity="false">
+		<appender-ref ref="FILE-AUDIT" />
+		<appender-ref ref="ASYNC" />
+	</logger>
+
+	<logger name="org.apache.http.wire" level="INFO">
+		<appender-ref ref="FILE-AUDIT" />
+		<appender-ref ref="ASYNC" />
+	</logger>
+
+	<logger
+		name="io.swagger.models.parameters.AbstractSerializableParameter"
+		level="ERROR" >
+		<appender-ref ref="FILE-AUDIT" />
+		<appender-ref ref="ASYNC"/>
+	</logger>	
+
+	<root level="info">
+		<appender-ref ref="ASYNC" />
+		<appender-ref ref="FILE-AUDIT" />		
+	</root>
+
+</configuration>
